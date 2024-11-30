@@ -72,9 +72,11 @@ def draw_circles(shape, dfs_path):
     # draw circles
     idx = 0
     while idx < len(dfs_path):
+        # binary search on segment
         l, r = 3, len(dfs_path)-1
         while l <= r:
             m = (l+r)//2
+            # find lstsq circle
             points = []
             for i in range(0, m):
                 points.append(dfs_path[(idx + i) % len(dfs_path)])
@@ -88,10 +90,12 @@ def draw_circles(shape, dfs_path):
             b = np.array(b)
             h, k, radius = lstsq(A, b)
             RMSE = lstsq_error(h, k, radius, points)
+            # check error
             if RMSE > 0.4:
                 r = m - 1
             else:
                 l = m + 1
+        # final segment length = l
         points = []
         for i in range(0, l):
             points.append(dfs_path[(idx + i) % len(dfs_path)])
