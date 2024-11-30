@@ -9,7 +9,7 @@ def detect_edges(image_path):
     # Load the image
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     # Resize for faster processing (optional)
-    img = cv2.resize(img, (1000, 1000))
+    img = cv2.resize(img, (1500, 1500))
     # Apply Canny edge detection
     edges = cv2.Canny(img, 100, 200)
     return edges
@@ -34,6 +34,7 @@ def dfs(edges):
     seen = [[False for i in range(n)] for j in range(m)]
     seen[r][c] = True
     path.append([r, c])
+    # look distance 1, 2 blocks away
     dir = [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [1, -1], [-1, -1], [-1, 1], [0, 2], [1, 2], [2, 2], [2, 1], [2, 0], [2, -1], [2, -2], [1, -2], [0, -2], [-1, -2], [-2, -2], [-2, -1], [-2, 0], [-2, 1], [-2, 2], [-1, 2]]
     while True:
         found = False
@@ -44,6 +45,66 @@ def dfs(edges):
                 r = nr
                 c = nc
                 found = True
+                break
+        if found:
+            path.append([r, c])
+            seen[r][c] = True
+            continue
+        for i in range(3, 10):
+            for j in range(i * 2):
+                nr = r + j - i
+                nc = c + i
+                if nr >= 0 and nr < m and nc >= 0 and nc < n and not seen[nr][nc] and edges[nr][nc] != 0:
+                    r = nr
+                    c = nc
+                    found = True
+                    break
+            if found:
+                break
+        if found:
+            path.append([r, c])
+            seen[r][c] = True
+            continue
+        for i in range(3, 10):
+            for j in range(i * 2):
+                nr = r + i
+                nc = c - j + i
+                if nr >= 0 and nr < m and nc >= 0 and nc < n and not seen[nr][nc] and edges[nr][nc] != 0:
+                    r = nr
+                    c = nc
+                    found = True
+                    break
+            if found:
+                break
+        if found:
+            path.append([r, c])
+            seen[r][c] = True
+            continue
+        for i in range(3, 10):
+            for j in range(i * 2):
+                nr = r - j + i
+                nc = c - i
+                if nr >= 0 and nr < m and nc >= 0 and nc < n and not seen[nr][nc] and edges[nr][nc] != 0:
+                    r = nr
+                    c = nc
+                    found = True
+                    break
+            if found:
+                break
+        if found:
+            path.append([r, c])
+            seen[r][c] = True
+            continue
+        for i in range(3, 10):
+            for j in range(i * 2):
+                nr = r - i
+                nc = c + j - i
+                if nr >= 0 and nr < m and nc >= 0 and nc < n and not seen[nr][nc] and edges[nr][nc] != 0:
+                    r = nr
+                    c = nc
+                    found = True
+                    break
+            if found:
                 break
         if found:
             path.append([r, c])
@@ -138,5 +199,5 @@ def main(image_path):
     plt.show()
 
 # Path to the uploaded image
-uploaded_image_path = "bat.jpeg"
+uploaded_image_path = "butterfly.jpeg"
 main(uploaded_image_path)
