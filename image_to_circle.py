@@ -9,7 +9,7 @@ def detect_edges(image_path):
     # Load the image
     img = cv2.imread(image_path, cv2.IMREAD_GRAYSCALE)
     # Resize for faster processing (optional)
-    img = cv2.resize(img, (300, 300))
+    img = cv2.resize(img, (1000, 1000))
     # Apply Canny edge detection
     edges = cv2.Canny(img, 100, 200)
     return edges
@@ -53,38 +53,59 @@ def dfs(edges):
     return path
 
 def lstsq(A, b):
-    # find lesat squares solution
+    # find least squares solution
     params = np.linalg.lstsq(A, b, rcond=None)[0]
-    return [params[1], params[0], np.sqrt(params[2] + params[1]**2 + params[0]**2)]
+    return [params[1], params[0], np.sqrt(params[2] + params[1] ** 2 + params[0] ** 2)]
 
+def lstsq_error(h, k, r, points):
+    y = points[:, 0]
+    x = points[:, 1]
+    # mean square error
+    MSE = np.mean((np.sqrt((x-h) ** 2 + (y-k)**2) - r) ** 2)
+    # root mean square error
+    return np.sqrt(MSE)
 
-def draw_circles(edges, dfs_path, num_circles=50):
+def draw_circles(shape, dfs_path):
     # Create a blank canvas
-    height, width = edges.shape
+    height, width = shape
     canvas = np.zeros((height, width), dtype=np.uint8)
     # draw circles
-    for i in range(0, num_circles):
+    idx = 0
+    while idx < len(dfs_path):
+        l, r = 3, len(dfs_path)-1
+        while l <= r:
+            m = (l+r)//2
+            points = []
+            for i in range(0, m):
+                points.append(dfs_path[(idx + i) % len(dfs_path)])
+            points = np.array(points)
+            A = []
+            b = []
+            for j in range(m):
+                A.append([2 * points[j][0], 2 * points[j][1], 1])
+                b.append(points[j][0] ** 2 + points[j][1] ** 2)
+            A = np.array(A)
+            b = np.array(b)
+            h, k, radius = lstsq(A, b)
+            RMSE = lstsq_error(h, k, radius, points)
+            if RMSE > 0.4:
+                r = m - 1
+            else:
+                l = m + 1
         points = []
-        num_points = 50
-        for j in range(num_points):
-            points.append(dfs_path[(i * len(dfs_path)//num_circles + j) % len(dfs_path)])
-
+        for i in range(0, l):
+            points.append(dfs_path[(idx + i) % len(dfs_path)])
         points = np.array(points)
         A = []
         b = []
-        for j in range(num_points):
-            A.append([2*points[j][0], 2*points[j][1], 1])
-            b.append(points[j][0]**2 + points[j][1]**2)
+        for j in range(l):
+            A.append([2 * points[j][0], 2 * points[j][1], 1])
+            b.append(points[j][0] ** 2 + points[j][1] ** 2)
         A = np.array(A)
         b = np.array(b)
         h, k, r = lstsq(A, b)
-
-        radius = int(r)
-        center = (int(h), int(k))
-        color = 255
-        thickness = 1
-        
-        cv2.circle(canvas, center, radius, color, thickness)
+        cv2.circle(canvas, (int(h), int(k)), int(r), 255, 1)
+        idx += l
     
     return canvas
 
@@ -94,9 +115,9 @@ def main(image_path):
     # find path to trace shape
     dfs_path = dfs(edges)
     # Draw circles on the canvas
-    circle_image = draw_circles(edges, dfs_path)
-    # edges[edges == 255] = 1
-    # np.savetxt('edges.txt', edges, fmt='%d')
+    circle_image = draw_circles(edges.shape, dfs_path)
+    edges[edges == 255] = 1
+    np.savetxt('edges.txt', edges, fmt='%d')
     
     # Plot results
     plt.figure(figsize=(10, 5))
