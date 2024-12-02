@@ -3,6 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import sys
+from collections import deque
 np.set_printoptions(threshold=sys.maxsize)
 
 def detect_edges(image_path):
@@ -14,45 +15,58 @@ def detect_edges(image_path):
     edges = cv2.Canny(img, 100, 200)
     return edges
 
-def dfs_helper(edges, seen, r, c):
+def bfs(edges):
+    # bfs in 2 directions from random starting points to get paths in order
     m, n = edges.shape
-    # find path
-    path = []
-    seen[r][c] = True
-    path.append([r, c])
-    # look distance 1, 2 blocks away
-    dir = [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [1, -1], [-1, -1], [-1, 1]]
-    while True:
-        found = False
-        for d in dir:
-            nr = r + d[0]
-            nc = c + d[1]
-            if nr >= 0 and nr < m and nc >= 0 and nc < n and not seen[nr][nc] and edges[nr][nc] != 0:
-                r = nr
-                c = nc
-                found = True
-                break
-        if found:
-            path.append([r, c])
-            seen[r][c] = True
-            continue
-        # if len(path) < 10:
-        #     return []
-        break
-    return path
-
-def dfs(edges):
-    m, n = edges.shape
-    # find starting point
-    r = 0
-    c = 0
+    r, c = 0, 0
     paths = []
     seen = [[False for i in range(n)] for j in range(m)]
-    found = False
     for i in range(m):
         for j in range(n):
             if edges[i][j] != 0 and not seen[i][j]:
-                paths.append(dfs_helper(edges, seen, i, j))
+                path = deque([[i, j]])
+                lq = deque([])
+                rq = deque([])
+                dir = [[-1, 0], [-1, -1], [0, -1], [1, -1]]
+                for d in dir:
+                    nr = i + d[0]
+                    nc = j + d[1]
+                    if not seen[nr][nc] and edges[nr][nc] != 0:
+                        seen[nr][nc] = True
+                        lq.append([nr, nc])
+                        path.appendleft([nr, nc])
+                dir = [[-1, 1], [0, 1], [1, 1], [1, 0]]
+                for d in dir:
+                    nr = i + d[0]
+                    nc = j + d[1]
+                    if not seen[nr][nc] and edges[nr][nc] != 0:
+                        seen[nr][nc] = True
+                        rq.append([nr, nc])
+                        path.append([nr, nc])
+                dir = [[-1, 0], [-1, -1], [0, -1], [1, -1], [-1, 1], [0, 1], [1, 1], [1, 0]]
+                while len(lq) > 0 or len(rq) > 0:
+                    size = len(lq)
+                    for _ in range(size):
+                        r, c = lq.popleft()
+                        for d in dir:
+                            nr = r + d[0]
+                            nc = c + d[1]
+                            if not seen[nr][nc] and edges[nr][nc] != 0:
+                                seen[nr][nc] = True
+                                lq.append([nr, nc])
+                                path.appendleft([nr, nc])
+                    size = len(rq)
+                    for _ in range(size):
+                        r, c = rq.popleft()
+                        for d in dir:
+                            nr = r + d[0]
+                            nc = c + d[1]
+                            if not seen[nr][nc] and edges[nr][nc] != 0:
+                                seen[nr][nc] = True
+                                rq.append([nr, nc])
+                                path.append([nr, nc])
+                path = list(path)
+                paths.append(path)
     return paths
 
 def lstsq(A, b):
@@ -71,23 +85,23 @@ def lstsq_error(h, k, r, points):
     # root mean square error
     return np.sqrt(MSE)
 
-def draw_circles(shape, dfs_paths):
+def draw_circles(shape, paths):
     # Create a blank canvas
     height, width = shape
     canvas = np.zeros((height, width), dtype=np.uint8)
     # draw circles
     weird_points = [[]]
-    for dfs_path in dfs_paths:
+    for path in paths:
         idx = 0
-        while idx < len(dfs_path):
+        while idx < len(path):
             # binary search on segment
-            l, r = 3, len(dfs_path)-1
+            l, r = 20, len(path)-1
             while l <= r:
                 m = (l+r)//2
                 # find lstsq circle
                 points = []
                 for i in range(0, m):
-                    points.append(dfs_path[(idx + i) % len(dfs_path)])
+                    points.append(path[(idx + i) % len(path)])
                 points = np.array(points)
                 A = []
                 b = []
@@ -99,22 +113,22 @@ def draw_circles(shape, dfs_paths):
                 h, k, radius = lstsq(A, b)
                 RMSE = lstsq_error(h, k, radius, points)
                 # check error
-                if RMSE > 0.4:
+                if RMSE > 0.41:
                     r = m - 1
                 else:
                     l = m + 1
             # final segment length = l
-            if l < 10: # check for points that are hard to fit (usually those that are almost straight line)
-                if len(weird_points[-1]) > 75:
+            if l < 30: # check for points that are hard to fit (usually those that are almost straight line)
+                if len(weird_points[-1]) > 60:
                     weird_points.append([])
                 for i in range(0, l):
-                    weird_points[-1].append(dfs_path[(idx + i) % len(dfs_path)])
+                    weird_points[-1].append(path[(idx + i) % len(path)])
             else: # draw circles
                 if len(weird_points[-1]) != 0:
                     weird_points.append([])
                 points = []
                 for i in range(0, l):
-                    points.append(dfs_path[(idx + i) % len(dfs_path)])
+                    points.append(path[(idx + i) % len(path)])
                 points = np.array(points)
                 A = []
                 b = []
@@ -144,9 +158,9 @@ def main(image_path):
     # Detect edges
     edges = detect_edges(image_path)
     # find path to trace shape
-    dfs_path = dfs(edges)
+    paths = bfs(edges)
     # Draw circles on the canvas
-    circle_image = draw_circles(edges.shape, dfs_path)
+    circle_image = draw_circles(edges.shape, paths)
     edges[edges == 255] = 1
     np.savetxt('edges.txt', edges, fmt='%d')
     
@@ -168,6 +182,7 @@ def main(image_path):
 for image in os.listdir("images"):
     image_path = os.path.join("images", image)
     main(image_path)
+
 # go through select image
 # image_path = r"images\bat.jpeg"
 # main(image_path)
