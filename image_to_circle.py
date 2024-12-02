@@ -163,7 +163,6 @@ def main(image_path):
     circle_image = draw_circles(edges.shape, paths)
     edges[edges == 255] = 1
     np.savetxt('edges.txt', edges, fmt='%d')
-    
     # Plot results
     plt.figure(figsize=(10, 5))
     plt.subplot(1, 2, 1)
